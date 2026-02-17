@@ -92,11 +92,10 @@ fn main() {
             false => println!("Invalid paren order!")
         };
     }
-    let input: String = add_paren_to_expression(&input);
-    // let input: String = input;
+    let valid_input: String = add_paren_to_expression(&input);
+    // let valid_input: String = input;
 
-    let paren_tuples: Vec<(usize, usize)> = get_paren_tuple_indices(&input);
-    let expr = construct_expression(&input, &paren_tuples);
+    let expr = construct_expression(&valid_input, &get_paren_tuple_indices(&valid_input));
     let result = expr.resolve();
     println!("{:?} = {}", expr, result);
 
@@ -180,12 +179,62 @@ fn get_paren_tuple_indices(input: &String) -> Vec<(usize, usize)> {
     tuples.iter().copied().rev().collect()
 }
 
-fn add_paren_to_expression(input: &String) -> String {
-    todo!();
+fn add_paren_to_expression(input: &String) -> String { // BUG: A LOT OF THEM
+    let input: String = input.clone();
+    let number_token_count: usize = input.split_whitespace().collect::<Vec<_>>().len() / 2;
+
+    let paren_count: usize = {
+        let mut left_paren_count: usize = 0;
+        for c in input.chars() {
+            if c == '(' {
+                left_paren_count += 1;
+            }
+        }
+        left_paren_count
+    };
+
+    if number_token_count < paren_count {
+       panic!("invalid paren");
+    } else if number_token_count == paren_count {
+        return input;
+    }
+
+    let mut input = input;
+    let missing_paren = number_token_count - paren_count;
+
+    input = format!("{}{}", "(".repeat(missing_paren), input);
+    println!("{}", input);
+
+    let mut whitespace_count: i32 = 0;
+    for i in 0..input.len() {
+        println!("{}: {}", i, input.chars().nth(i).unwrap());
+        if input.chars().nth(i).unwrap() == ' ' {
+            whitespace_count += 1;
+        }
+
+        if whitespace_count == 3 {
+            whitespace_count = 0;
+            if input.chars().nth(i - 1).unwrap() == ')' {
+                continue;
+            }
+            if input.chars().nth(i - 2).unwrap() == '(' {
+                continue;
+            }
+            if input.chars().nth(i - 4).unwrap() == '(' {
+                continue;
+            }
+            input.insert(i, ')');
+        }
+    }
+    input = format!("{})", input);
+
+    println!("{}", input);
+    input
 }
 
 fn construct_expression(input: &String, paren_tuples: &Vec<(usize, usize)>) -> Expression {
-    let mut paren_tuples: Vec<(usize, usize)> = paren_tuples.to_vec();
+    let paren_tuples: Vec<(usize, usize)> = paren_tuples.to_vec();
+    println!("{:?}", paren_tuples);
 
     let mut expr_left: Option<Expression> = None;
     let mut expr_right: Option<Expression> = None;
@@ -204,7 +253,7 @@ fn construct_expression(input: &String, paren_tuples: &Vec<(usize, usize)>) -> E
                     None => {
                         if tuple.0 < tuple_prev.0 && tuple.1 > tuple_prev.1 {
                             let left_part = &input[tuple.0 + 1..tuple_prev.0];
-                            let right_part = &input[tuple_prev.1 + 1..tuple.1];
+                            // let right_part = &input[tuple_prev.1 + 1..tuple.1]; // BUG: UNUSED???
                             if left_part.trim().is_empty() {
                                 // left inside
                                 expr_right = Some(construct_expression_segment_from_expr_and_slice(&input[tuple_prev.1 + 1..tuple.1], &expr_right.as_ref().unwrap()));
@@ -214,7 +263,7 @@ fn construct_expression(input: &String, paren_tuples: &Vec<(usize, usize)>) -> E
                             }
                         } else {
                             // outside
-                            expr_left = Some(construct_expression_segment_from_slice(&input[tuple.0 + 1..tuple.1 - 1]));
+                            expr_left = Some(construct_expression_segment_from_slice(&input[tuple.0 + 1..tuple.1]));
                         }
                     },
                     Some(_) => {
@@ -232,6 +281,7 @@ fn construct_expression(input: &String, paren_tuples: &Vec<(usize, usize)>) -> E
 
 fn construct_expression_segment_from_slice(input: &str) -> Expression {
     let tokens: Vec<&str> = input.split_whitespace().collect();
+    println!("{:?}", tokens);
     let num1: i32 = tokens[0].parse().unwrap();
     let oper: Operator = Operator::from_char(tokens[1].chars().nth(0).unwrap()).unwrap();
     let num2: i32 = tokens[2].parse().unwrap();
@@ -244,6 +294,7 @@ fn construct_expression_segment_from_slice(input: &str) -> Expression {
 
 fn construct_expression_segment_from_slice_and_expr(input: &str, expr: &Expression) -> Expression {
     let tokens: Vec<&str> = input.split_whitespace().collect();
+    println!("{:?}", tokens);
     let num1: i32 = tokens[0].parse().unwrap();
     let oper: Operator = Operator::from_char(tokens[1].chars().nth(0).unwrap()).unwrap();
     Expression::Operation {
@@ -255,6 +306,7 @@ fn construct_expression_segment_from_slice_and_expr(input: &str, expr: &Expressi
 
 fn construct_expression_segment_from_expr_and_slice(input: &str, expr: &Expression) -> Expression {
     let tokens: Vec<&str> = input.split_whitespace().collect();
+    println!("{:?}", tokens);
     let oper: Operator = Operator::from_char(tokens[0].chars().nth(0).unwrap()).unwrap();
     let num2: i32 = tokens[1].parse().unwrap();
     Expression::Operation {
@@ -266,6 +318,7 @@ fn construct_expression_segment_from_expr_and_slice(input: &str, expr: &Expressi
 
 fn construct_expression_segment_from_expr_and_expr(input: &str, expr_left: &Expression, expr_right: &Expression) -> Expression {
     let tokens: Vec<&str> = input.split_whitespace().collect();
+    println!("{:?}", tokens);
     let oper: Operator = Operator::from_char(tokens[0].chars().nth(0).unwrap()).unwrap();
     Expression::Operation {
         operator: oper,
